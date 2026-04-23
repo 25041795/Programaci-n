@@ -1,2 +1,2 @@
-# Programaci-n
+# Programacion
 Programas de Programación orientada a objetos
