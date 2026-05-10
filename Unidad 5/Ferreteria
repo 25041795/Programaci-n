@@ -1,1 +1,263 @@
+import mysql.connector
+from datetime import datetime
 
+
+
+conexion = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="ferreteria"
+)
+
+cursor = conexion.cursor()
+
+usuarios_sistema = {
+    "admin": "1234",
+    "empleado1": "ferre2024"
+}
+
+
+class Persona:
+    def __init__(self, nombre, telefono):
+        self.nombre = nombre
+        self.telefono = telefono
+
+
+class Cliente(Persona):
+    def __init__(self, idc, nombre, telefono, correo):
+        super().__init__(nombre, telefono)
+        self.idc = idc
+        self.correo = correo
+
+
+class Producto:
+    def __init__(self, codigo, nombre, categoria, precio):
+        self.codigo = codigo
+        self.nombre = nombre
+        self.categoria = categoria
+        self.precio = precio
+
+
+class Venta:
+    def __init__(self, folio, id_cliente, codigo, fecha, cantidad, total):
+        self.folio = folio
+        self.id_cliente = id_cliente
+        self.codigo = codigo
+        self.fecha = fecha
+        self.cantidad = cantidad
+        self.total = total
+
+
+def alta_producto():
+    print("\n⊹ Alta de producto ⊹")
+
+    codigo = input("Código: ")
+    nombre = input("Nombre: ")
+    categoria = input("Categoría: ")
+    precio = float(input("Precio: "))
+    cantidad = int(input("Cantidad: "))
+
+    producto = Producto(codigo, nombre, categoria, precio)
+
+    sql = """
+    INSERT INTO productos
+    (codigo, nombre, categoria, precio, cantidad, vendidos)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+
+    cursor.execute(sql, (producto.codigo, producto.nombre, producto.categoria, producto.precio, cantidad, 0))
+    conexion.commit()
+
+    print("Producto guardado ")
+
+
+def mostrar_inventario():
+    print("\n⊹ Inventario ⊹")
+
+    cursor.execute("SELECT * FROM productos")
+    datos = cursor.fetchall()
+
+    if not datos:
+        print("No hay productos")
+        return
+
+    for p in datos:
+        print("\nCódigo:", p[0])
+        print("Nombre:", p[1])
+        print("Categoría:", p[2])
+        print("Precio:", p[3])
+        print("Cantidad:", p[4])
+        print("Vendidos:", p[5])
+
+
+def consultar_producto():
+    codigo = input("Código del producto: ")
+
+    cursor.execute("SELECT * FROM productos WHERE codigo=%s", (codigo,))
+    p = cursor.fetchone()
+
+    if p:
+        print("\nCódigo:", p[0])
+        print("Nombre:", p[1])
+        print("Categoría:", p[2])
+        print("Precio:", p[3])
+        print("Cantidad:", p[4])
+        print("Vendidos:", p[5])
+    else:
+        print("Producto no encontrado")
+
+
+def registrar_cliente():
+    print("\n⊹ Registrar cliente ⊹")
+
+    idc = input("ID: ")
+    nombre = input("Nombre: ")
+    telefono = input("Teléfono: ")
+    correo = input("Correo: ")
+
+    cliente = Cliente(idc, nombre, telefono, correo)
+
+    sql = """
+    INSERT INTO clientes
+    (id, nombre, telefono, correo)
+    VALUES (%s, %s, %s, %s)
+    """
+
+    cursor.execute(sql, (cliente.idc, cliente.nombre, cliente.telefono, cliente.correo))
+    conexion.commit()
+
+    print("Cliente guardado ")
+
+
+def mostrar_clientes():
+    cursor.execute("SELECT * FROM clientes")
+    datos = cursor.fetchall()
+
+    if not datos:
+        print("No hay clientes")
+        return
+
+    for c in datos:
+        print("\nID:", c[0])
+        print("Nombre:", c[1])
+        print("Tel:", c[2])
+        print("Correo:", c[3])
+
+
+def registrar_venta():
+    print("\n⊹ Registrar venta ⊹")
+
+    id_cliente = input("ID cliente: ")
+    codigo = input("Código producto: ")
+    cantidad = int(input("Cantidad: "))
+    fecha = datetime.now().strftime("%Y-%m-%d")
+
+    cursor.execute("SELECT precio, cantidad, vendidos FROM productos WHERE codigo=%s", (codigo,))
+    prod = cursor.fetchone()
+
+    if not prod:
+        print("Producto no encontrado")
+        return
+
+    precio, stock, vendidos = prod
+    disponibles = stock - vendidos
+
+    if cantidad > disponibles:
+        print("No hay suficiente stock")
+        return
+
+    total = cantidad * precio
+
+    cursor.execute(
+        "UPDATE productos SET vendidos = vendidos + %s WHERE codigo=%s",
+        (cantidad, codigo)
+    )
+
+    cursor.execute("""
+        INSERT INTO ventas
+        (id_cliente, codigo_producto, fecha, cantidad, total)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (id_cliente, codigo, fecha, cantidad, total))
+
+    conexion.commit()
+
+    venta = Venta(0, id_cliente, codigo, fecha, cantidad, total)
+
+    print("Venta registrada ")
+
+
+def mostrar_historial():
+    cursor.execute("SELECT * FROM ventas")
+    datos = cursor.fetchall()
+
+    if not datos:
+        print("No hay ventas")
+        return
+
+    for v in datos:
+        print("\nFolio:", v[0])
+        print("Cliente:", v[1])
+        print("Producto:", v[2])
+        print("Fecha:", v[3])
+        print("Cantidad:", v[4])
+        print("Total:", v[5])
+
+
+def login():
+    print("--- ⊹ Login ⊹ ---")
+
+    usuario = input("Usuario: ")
+    password = input("Contraseña: ")
+
+    cursor.execute(
+        "SELECT * FROM empleados WHERE usuario=%s AND password=%s",
+        (usuario, password)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        print("Login exitoso")
+        return True
+    else:
+        print("Usuario o contraseña incorrectos")
+        return False
+    
+
+def menu():
+    while True:
+        print("\n--- ⊹ Sistema Ferretería ⊹ ---")
+        print("1. Alta producto")
+        print("2. Mostrar inventario")
+        print("3. Consultar producto")
+        print("4. Registrar cliente")
+        print("5. Mostrar clientes")
+        print("6. Registrar venta")
+        print("7. Historial ventas")
+        print("8. Salir")
+
+        op = input("Opción: ")
+
+        if op == "1":
+            alta_producto()
+        elif op == "2":
+            mostrar_inventario()
+        elif op == "3":
+            consultar_producto()
+        elif op == "4":
+            registrar_cliente()
+        elif op == "5":
+            mostrar_clientes()
+        elif op == "6":
+            registrar_venta()
+        elif op == "7":
+            mostrar_historial()
+        elif op == "8":
+            print("Saliendo...")
+            break
+
+if login():
+    menu()
+else:
+    print("Acceso denegado")
